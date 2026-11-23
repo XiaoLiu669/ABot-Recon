@@ -39,8 +39,21 @@ def add_demo_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/demo"))
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--amp-dtype", choices=("fp32", "fp16", "bf16"), default="bf16")
     parser.add_argument("--attention-backend", choices=("auto", "paged", "sdpa"), default="auto")
     parser.add_argument("--stride", type=int, default=1)
+    parser.add_argument(
+        "--fps",
+        type=float,
+        default=None,
+        help="sample video frames at this rate (video input only); overrides --stride",
+    )
+    parser.add_argument(
+        "--keep-frames",
+        type=Path,
+        default=None,
+        help="write extracted video frames here instead of a temp dir (video input only)",
+    )
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--end", type=int)
     parser.add_argument("--dense-stride", type=int, default=1)
@@ -134,6 +147,72 @@ def extract_video_frames(
     return selected
 
 
+def extract_video_frames_at_fps(
+    video_path: Path,
+    output_dir: Path,
+    *,
+    fps: float,
+    start: int = 0,
+    end: int | None = None,
+    video_capture_factory=None,
+) -> list[Path]:
+    """Sample frames by wall-clock rate instead of source-frame stride.
+
+    ``start`` / ``end`` keep the upstream meaning (source frame indices), so
+    ``--start``/``--end`` still select a source-frame range and ``--fps``
+    controls the sampling density inside it.
+    """
+    if fps <= 0:
+        raise ValueError("fps must be positive")
+    if start < 0:
+        raise ValueError("start must be non-negative")
+    if end is not None and end < 0:
+        raise ValueError("end must be non-negative")
+
+    if video_capture_factory is None:
+        try:
+            import cv2
+        except ImportError as exc:
+            raise RuntimeError(
+                "Video input requires opencv-python. Install it with `pip install -e '.[video]'`."
+            ) from exc
+
+        def video_capture_factory(path: Path):
+            return cv2.VideoCapture(str(path))
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    capture = video_capture_factory(video_path)
+    if not capture.isOpened():
+        capture.release()
+        raise ValueError(f"Could not open video: {video_path}")
+
+    src_fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
+    if src_fps <= 0:
+        capture.release()
+        raise ValueError(f"Could not read frame rate from video: {video_path}")
+    step = max(1, int(round(src_fps / fps)))
+
+    selected: list[Path] = []
+    frame_index = 0
+    try:
+        while end is None or frame_index < end:
+            ok, frame = capture.read()
+            if not ok:
+                break
+            if frame_index >= start and (frame_index - start) % step == 0:
+                rgb = np.ascontiguousarray(frame[:, :, ::-1])
+                frame_path = output_dir / f"{len(selected):08d}.jpg"
+                Image.fromarray(rgb, mode="RGB").save(frame_path, format="JPEG", quality=95)
+                selected.append(frame_path)
+            frame_index += 1
+    finally:
+        capture.release()
+
+    if not selected:
+        raise ValueError(f"No video frames selected from {video_path}")
+    return selected
+
+
 def collect_images(directory: Path, start: int, end: int | None, stride: int) -> list[Path]:
     if stride <= 0:
         raise ValueError("--stride must be positive")
@@ -177,6 +256,7 @@ def run_reconstruction(args: argparse.Namespace, images: list[Path]) -> None:
     model = ABotRecon.from_pretrained(
         args.checkpoint,
         device=args.device,
+        amp_dtype=args.amp_dtype,
         attention_backend=args.attention_backend,
         max_frames=args.max_frames,
         loop_closure=args.loop_closure,
@@ -213,14 +293,33 @@ def main() -> None:
 
     if not args.video.is_file():
         raise FileNotFoundError(args.video)
-    with tempfile.TemporaryDirectory(prefix="abot-recon-frames-") as frame_dir:
-        images = extract_video_frames(
+
+    def _extract(target: Path) -> list[Path]:
+        if args.fps is not None:
+            if args.fps <= 0:
+                raise ValueError("--fps must be positive")
+            return extract_video_frames_at_fps(
+                args.video,
+                target,
+                fps=args.fps,
+                start=args.start,
+                end=args.end,
+            )
+        return extract_video_frames(
             args.video,
-            Path(frame_dir),
+            target,
             start=args.start,
             end=args.end,
             stride=args.stride,
         )
+
+    if args.keep_frames is not None:
+        images = _extract(args.keep_frames)
+        run_reconstruction(args, images)
+        return
+
+    with tempfile.TemporaryDirectory(prefix="abot-recon-frames-") as frame_dir:
+        images = _extract(Path(frame_dir))
         run_reconstruction(args, images)
 
 
