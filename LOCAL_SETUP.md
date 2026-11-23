@@ -17,6 +17,7 @@ reproduce the previous behaviour).
 | `scripts/extract_frames.py` | Standalone frame extraction by sampling rate |
 | `scripts/render_preview.py` | Static PNG preview of a reconstruction (top-down + side view) |
 | `scripts/serve_point_cloud.ps1` | Serves the bundled web point-cloud viewer over HTTP |
+| `scripts/benchmark_local.py` | Measures streaming throughput and peak VRAM on the local GPU |
 
 ### `--amp-dtype`
 
@@ -96,14 +97,50 @@ python demo.py \
 * `--attention-backend sdpa` — FlashInfer does not support sm_75 or Windows.
 * `--amp-dtype fp16` — see the dtype table above.
 
-Measured on an RTX 2080 Ti (22 GB), PyTorch 2.5.1+cu121, 280x504 input:
-
-```
-~345 ms/frame, peak 7.4 GB VRAM
-```
-
 The KV cache is a fixed 12-frame local window, so VRAM use does not grow with
 sequence length.
+
+## Measured throughput and peak VRAM
+
+`scripts/benchmark_local.py` measures the same quantities that the upstream
+README reports for KITTI-02 ("24.45 FPS, 6.71 GiB, 504x280, NVIDIA H100, input
+storage excluded"), so the two can be compared directly.
+
+```bash
+python scripts/benchmark_local.py \
+    --checkpoint checkpoints/abot_recon.safetensors \
+    --video path/to/video.mp4 \
+    --frames 100 --fps 4
+```
+
+Measured on this machine — RTX 2080 Ti (22 GB, sm_75), driver 610.88,
+PyTorch 2.5.1+cu121, `--amp-dtype fp16 --attention-backend sdpa`, 504x280
+input, real checkpoint, 100 frames sampled at 4 fps, loop closure off,
+compiled cuRoPE2D extension active, mean of three runs:
+
+| Configuration | Wall clock | GPU time per frame | Peak VRAM (PyTorch allocated) | Peak VRAM (process) |
+|---|---|---|---|---|
+| camera poses only | 174.5 ms/frame (**5.73 FPS**) | 151.2 ms/frame (6.61 FPS) | 6.69 GiB | 8.41 GiB |
+| camera + points + confidence | 179.8 ms/frame (**5.56 FPS**) | 160.7 ms/frame (6.22 FPS) | 6.94 GiB | 8.67 GiB |
+
+* *Wall clock* includes the per-frame CPU preprocessing (JPEG decode, resize,
+  normalise, H2D copy). *GPU time* is measured with CUDA events around each
+  frame's forward pass.
+* The model keeps its 1.001 B parameters in **fp32 on the GPU** (3.74 GiB);
+  `fp16` is applied by autocast at compute time. Both VRAM columns therefore
+  include those weights. *Process* additionally includes the CUDA context and
+  the allocator's cached blocks.
+* Peak VRAM is flat across the sequence because the KV cache is a fixed
+  12-frame window.
+
+End-to-end `demo.py` on the same video (`--fps 4`, 327 frames, world points and
+confidence saved) takes 85–113 s, i.e. 260–345 ms/frame end to end; the spread
+is dominated by model load from disk and GPU clock ramp-up.
+
+The upstream numbers were produced on an H100 with the Linux release
+configuration (bf16 + FlashInfer). On sm_75 neither FlashInfer nor the bf16
+FlashAttention kernels are available, so this machine runs fp16 with the
+memory-efficient SDPA kernel — a different kernel mix, on a much smaller GPU.
 
 ## Known environment pitfalls
 
