@@ -9,6 +9,7 @@ dist/
 outputs/
 checkpoints/
 examples/images/
+webapp/runs/
 
 *.so
 

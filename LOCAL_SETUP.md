@@ -18,6 +18,8 @@ reproduce the previous behaviour).
 | `scripts/render_preview.py` | Static PNG preview of a reconstruction (top-down + side view) |
 | `scripts/serve_point_cloud.ps1` | Serves the bundled web point-cloud viewer over HTTP |
 | `scripts/benchmark_local.py` | Measures streaming throughput and peak VRAM on the local GPU |
+| `webapp/` | Local web app: upload a video, reconstruct it, view the 3D result |
+| `scripts/run_webapp.ps1` | Starts the web app and opens it in the browser |
 
 ### `--amp-dtype`
 
@@ -141,6 +143,44 @@ The upstream numbers were produced on an H100 with the Linux release
 configuration (bf16 + FlashInfer). On sm_75 neither FlashInfer nor the bf16
 FlashAttention kernels are available, so this machine runs fp16 with the
 memory-efficient SDPA kernel — a different kernel mix, on a much smaller GPU.
+
+## Local web app (`webapp/`)
+
+A small Flask app that lets you upload a video in the browser, reconstructs it,
+and shows the 3D result without touching the command line.
+
+```powershell
+pip install -e ".[web]"
+powershell -ExecutionPolicy Bypass -File scripts\run_webapp.ps1
+```
+
+It opens <http://127.0.0.1:8770/> with four steps: drop a video, pick the
+sampling rate and dtype, watch the progress, then explore the point cloud in
+the bundled viewer (embedded, with a trajectory overview and download links
+for the PLY, the camera poses and the manifest).
+
+How it is put together:
+
+* `webapp/server.py` — the HTTP layer: upload, run, status polling, and static
+  serving of the run artefacts under `/files/<run_id>/…`. The viewer resolves
+  chunk paths relative to the manifest URL, so the manifest is served from the
+  same directory as the chunks.
+* `webapp/worker.py` — the reconstruction itself, run as a **separate
+  process**. That keeps the GPU memory confined to the worker (released as soon
+  as it exits), isolates crashes, and lets the worker report progress as
+  newline-delimited JSON on stdout (`PHASE` / `PROGRESS` / `LOG` / `DONE` /
+  `ERROR`).
+* `webapp/index.html` + `webapp/static/` — the Chinese UI. It embeds the
+  existing `tools/point_cloud_viewer.html` in an iframe and passes the manifest
+  and trajectory URLs through the query parameters the viewer already
+  understands.
+
+`--amp-dtype fp16` and `--attention-backend sdpa` are the defaults in the UI
+because of the dtype table above; on a pre-Ampere GPU `bf16` falls back to the
+slow `MATH` path.
+
+The point-cloud viewer loads three.js from a CDN, so the first render needs
+network access and takes a few seconds.
 
 ## Known environment pitfalls
 
