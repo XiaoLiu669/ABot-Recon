@@ -54,6 +54,28 @@ depend on the input frame rate. `--fps` selects by wall-clock rate instead, so
 the same command produces the same number of frames regardless of source fps.
 `--fps` takes precedence over `--stride` for video input.
 
+**`--fps` is a geometric-quality knob, not a speed knob.** The released
+weights reconstruct with a fixed 12-frame local window (`local_window_frames =
+12`; `config.py` rejects any other value), so they assume the input frames are
+*temporally adjacent* views of the same scene. Sampling too sparsely breaks
+that assumption.
+
+Measured on this machine, same 87 s / 30 fps driving video:
+
+| `--fps` | frames | trajectory length | inter-frame steps that jump | mean per-frame confidence |
+|---|---|---|---|---|
+| 4 | 327 | 207.0 m | 0 of 326 | 0.232 |
+| 1 | 88 | 73.4 m | 19 of 87 | 0.159 |
+
+At 1 fps the baseline between consecutive frames is far outside the model's
+training distribution, so the pose estimate degrades: it under-estimates the
+travel by 2.8x and produces erratic jumps. That is what a distorted, zig-zagging
+trajectory and misaligned patches in the point cloud actually are — not a
+rendering bug.
+
+**Use 4 fps or more for any measurement.** 1-2 fps is only good for a quick
+look at whether the video is usable at all.
+
 ### `--keep-frames`
 
 Video frames are extracted into a temporary directory by default and discarded
