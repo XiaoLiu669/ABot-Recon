@@ -6,6 +6,7 @@ const els = {
   dropzone: $('dropzone'), fileInput: $('fileInput'), pickBtn: $('pickBtn'), clearBtn: $('clearBtn'),
   dzEmpty: $('dzEmpty'), dzFile: $('dzFile'), preview: $('preview'), fileName: $('fileName'), fileSize: $('fileSize'),
   uploadError: $('uploadError'), optFps: $('optFps'), optDtype: $('optDtype'), optThreshold: $('optThreshold'),
+  fpsWarn: $('fpsWarn'),
   runBtn: $('runBtn'), runHint: $('runHint'), cardProgress: $('cardProgress'), phaseText: $('phaseText'),
   percentText: $('percentText'), barFill: $('barFill'), logBox: $('logBox'),
   viewerFrame: $('viewerFrame'), openViewer: $('openViewer'),
@@ -182,12 +183,6 @@ function drawPlot(points, meta) {
   }, `Z ${spanZ.toFixed(1)} m`);
   svg.appendChild(zLabel);
 
-  // 轨迹总长标注
-  const length = pathLength(points);
-  svg.appendChild(el('text', {
-    class: 'note-text', x: ox + 10, y: oy + 16,
-  }, `轨迹长 ${length.toFixed(1)} m`));
-
   // 指北针
   const nx = Math.min(width - 13, width - pad.r + 8);
   const ny = pad.t + 24;
@@ -210,8 +205,9 @@ function drawPlot(points, meta) {
     String(Math.round(barUnits))));
 
   // 收尾：状态文字与图纸信息
+  const length = pathLength(points);
   els.plotEmpty.hidden = true;
-  els.plotScale.textContent = `网格 1 格 = ${step} m`;
+  els.plotScale.textContent = `轨迹长 ${length.toFixed(1)} m · 网格 1 格 = ${step} m`;
   els.heroLen.textContent = `${length.toFixed(1)} m`;
   els.tbGrid.textContent = `${step} m`;
   if (meta) {
@@ -291,6 +287,20 @@ els.dropzone.addEventListener('drop', (event) => {
   const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
   if (file) handleFile(file);
 });
+
+/* 抽帧率过低会破坏几何：发布权重用固定 12 帧局部窗口，假定相邻帧是时间上连续的视角 */
+function updateFpsWarning() {
+  const fps = Number(els.optFps.value);
+  if (fps >= 4) {
+    els.fpsWarn.hidden = true;
+    els.fpsWarn.textContent = '';
+    return;
+  }
+  els.fpsWarn.hidden = false;
+  els.fpsWarn.textContent =
+    `${fps} fps 只能快速看一眼：帧间隔过大时位姿估计会失真，轨迹会变形、点云会错位，不能用来量测。`;
+}
+els.optFps.addEventListener('change', updateFpsWarning);
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B';
@@ -537,6 +547,7 @@ async function refreshHistory() {
 (async function init() {
   clearPlot();
   watchPlotSize();
+  updateFpsWarning();
   try {
     const response = await fetch('/api/config');
     const config = await response.json();

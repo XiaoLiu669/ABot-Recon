@@ -73,13 +73,13 @@
           <label class="opt">
             <span>抽帧率</span>
             <select id="optFps">
-              <option value="1">1 fps</option>
-              <option value="2">2 fps</option>
-              <option value="4" selected>4 fps</option>
-              <option value="8">8 fps</option>
-              <option value="15">15 fps</option>
+              <option value="1">1 fps · 仅快速预览</option>
+              <option value="2">2 fps · 仅快速预览</option>
+              <option value="4" selected>4 fps · 推荐</option>
+              <option value="8">8 fps · 更密</option>
+              <option value="15">15 fps · 最密（慢）</option>
             </select>
-            <small>每秒取几帧参与重建。帧越多点越密，耗时越长。</small>
+            <small>模型用固定 12 帧局部窗口做流式重建，相邻帧必须是时间上连续的视角。抽帧太稀会让位姿估计失真（轨迹变形、点云错位），量测请用 4 fps 以上。</small>
           </label>
           <label class="opt">
             <span>计算精度</span>
@@ -96,6 +96,7 @@
             <small>低于该值的点会被丢弃，越大越干净也越稀疏。</small>
           </label>
         </div>
+        <p class="warn" id="fpsWarn" hidden></p>
         <button type="button" class="primary" id="runBtn" disabled>开始重建</button>
         <p class="hint" id="runHint">请先上传视频</p>
       </div>

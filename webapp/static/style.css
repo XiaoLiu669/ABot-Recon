@@ -160,6 +160,10 @@ body {
   margin: 10px 0 0; padding: 8px 11px; border-left: 3px solid var(--err);
   background: rgba(163, 43, 34, .07); color: var(--err); font-size: 12.5px;
 }
+.warn {
+  margin: 0 0 12px; padding: 8px 11px; border-left: 3px solid var(--warn);
+  background: rgba(122, 87, 8, .08); color: var(--warn); font-size: 12px; line-height: 1.5;
+}
 
 /* ── 参数 ─────────────────────────────────────────────────────────── */
 .opts { display: grid; gap: 11px; margin-bottom: 14px; }
@@ -217,10 +221,11 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 }
 .plot figcaption {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  flex-wrap: wrap;
   padding: 8px 13px; border-bottom: 1px solid var(--rule);
   font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; color: var(--ink-2);
 }
-.plot-scale { color: var(--ink-3); }
+.plot-scale { color: var(--ink-3); white-space: nowrap; }
 /* SVG 以 1:1 像素绘制，坐标即屏幕像素，字号在任何宽度下都真实可读 */
 .plot svg { display: block; width: 100%; flex: 1 1 0; height: 0; min-height: 0; }
 .plot-empty {

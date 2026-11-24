@@ -46,7 +46,12 @@ def add_demo_arguments(parser: argparse.ArgumentParser) -> None:
         "--fps",
         type=float,
         default=None,
-        help="sample video frames at this rate (video input only); overrides --stride",
+        help=(
+            "sample video frames at this rate (video input only); overrides --stride. "
+            "The released weights reconstruct with a fixed 12-frame local window and assume "
+            "the input frames are temporally adjacent views, so rates below ~4 fps make the "
+            "pose estimate unreliable (distorted trajectory, misaligned point cloud)."
+        ),
     )
     parser.add_argument(
         "--keep-frames",
