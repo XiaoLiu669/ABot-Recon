@@ -41,13 +41,13 @@
 </style>
 </head>
 <body>
-<canvas id="canvas" aria-label="RGB point-cloud viewport"></canvas>
-<section class="panel" aria-label="Point-cloud viewer controls">
+<canvas id="canvas" aria-label="RGB 点云视口"></canvas>
+<section class="panel" aria-label="点云查看器控制面板">
   <h1>ABot-Recon 彩色点云</h1>
   <p class="subtitle">流式加载 <code>abot-point-cloud-chunks</code>，按原始 RGB 硬点云查看。</p>
   <fieldset>
     <label for="dataset">数据集</label>
-    <select id="dataset"><option value="custom" selected>Custom manifest…</option></select>
+    <select id="dataset"><option value="custom" selected>自定义清单…</option></select>
     <label for="manifestInput">Manifest 地址</label>
     <input id="manifestInput" type="url" spellcheck="false" placeholder="/outputs/demo_loop/point_cloud_chunks/manifest.json">
     <label for="trajectoryInput">轨迹地址（可选）</label>
@@ -135,10 +135,10 @@ async function fetchJson(url, label) {
   const requestUrl = resolveUrl(url);
   let response;
   try { response = await fetch(requestUrl, { cache: 'no-store' }); }
-  catch (error) { throw new Error(`Could not load ${label} "${requestUrl.href}": network request failed (${error.message}). Check the server and URL.`); }
-  if (!response.ok) throw new Error(`Could not load ${label} "${requestUrl.href}": HTTP ${response.status} ${response.statusText || '(no status text)'}.`);
+  catch (error) { throw new Error(`无法加载${label} "${requestUrl.href}"：网络请求失败（${error.message}）。请检查服务器与地址。`); }
+  if (!response.ok) throw new Error(`无法加载${label} "${requestUrl.href}"：HTTP ${response.status} ${response.statusText || '(无状态文本)'}。`);
   try { return await response.json(); }
-  catch (error) { throw new Error(`Could not parse ${label} "${requestUrl.href}" as JSON: ${error.message}.`); }
+  catch (error) { throw new Error(`无法把${label} "${requestUrl.href}" 解析为 JSON：${error.message}。`); }
 }
 async function ensureThree() {
   if (THREE) return THREE;
@@ -414,7 +414,7 @@ async function loadChunks(manifest, loadToken) {
   }
   if (state.activeLoadToken !== loadToken) return;
   if (state.loadedPointCount !== manifest.point_count) throw new Error(`Manifest declared ${manifest.point_count.toLocaleString()} points, but chunks contained ${state.loadedPointCount.toLocaleString()}. Regenerate the point cloud.`);
-  setStatus(`Ready · ${state.loadedPointCount.toLocaleString()} points in ${state.loadedChunkCount} chunks`);
+  setStatus(`已就绪 · ${state.loadedPointCount.toLocaleString()} 个点 · ${state.loadedChunkCount} 个分块`);
 }
 function buildTrajectory(payload) {
   if (!payload || typeof payload !== 'object') throw new Error('Trajectory payload must be a JSON object.');
@@ -564,7 +564,7 @@ function applyDriveCamera(progress) {
 function setMode(mode) {
   if (mode !== 'orbit' && mode !== 'drive') throw new Error(`Unknown camera mode: ${mode}`);
   if (mode === 'drive' && !state.trajectory) {
-    setStatus('Drive mode is unavailable because this dataset has no poses/trajectory.', true);
+    setStatus('该数据集没有位姿/轨迹，无法使用行车播放。', true);
     return;
   }
   state.mode = mode;
@@ -676,10 +676,10 @@ async function loadScene() {
   state.activeLoadToken = loadToken;
   const manifestValue = elements.manifestInput.value.trim();
   if (!manifestValue) {
-    setStatus('Enter a manifest URL or choose a catalog dataset before loading.', true);
+    setStatus('请先输入 manifest 地址，或从目录中选择一个数据集。', true);
     return;
   }
-  setStatus('Initializing three.js…');
+  setStatus('正在初始化 three.js…');
   try {
     await ensureThree();
     if (state.activeLoadToken !== loadToken) return;
@@ -693,12 +693,12 @@ async function loadScene() {
     state.drivePitch = 0;
     elements.playbackProgress.value = '0';
     elements.playbackProgressValue.textContent = '0%';
-    elements.playPauseButton.textContent = 'Play';
+    elements.playPauseButton.textContent = '播放';
     elements.driveButton.disabled = true;
     elements.playPauseButton.disabled = true;
     const manifestUrl = resolveUrl(manifestValue);
-    setStatus(`Loading manifest "${manifestUrl.href}"…`);
-    const manifest = validateManifest(await fetchJson(manifestUrl, 'manifest'), manifestUrl);
+    setStatus(`正在加载清单 "${manifestUrl.href}"…`);
+    const manifest = validateManifest(await fetchJson(manifestUrl, '清单'), manifestUrl);
     if (state.activeLoadToken !== loadToken) return;
     state.manifest = manifest;
     state.manifestUrl = manifestUrl;
@@ -706,8 +706,8 @@ async function loadScene() {
     if (elements.trajectoryInput.value.trim()) trajectoryUrl = resolveUrl(elements.trajectoryInput.value.trim());
     else if (elements.trajectoryInput.dataset.explicitEmpty !== 'true' && typeof manifest.trajectory === 'string' && manifest.trajectory) trajectoryUrl = resolveUrl(manifest.trajectory, manifestUrl);
     if (trajectoryUrl) {
-      setStatus(`Loading trajectory "${trajectoryUrl.href}"…`);
-      const trajectoryPayload = await fetchJson(trajectoryUrl, 'trajectory');
+      setStatus(`正在加载轨迹 "${trajectoryUrl.href}"…`);
+      const trajectoryPayload = await fetchJson(trajectoryUrl, '轨迹');
       if (state.activeLoadToken !== loadToken) return;
       if (trajectoryPayload && typeof trajectoryPayload === 'object' && Array.isArray(trajectoryPayload.positions) && trajectoryPayload.positions.length === 0) {
         state.trajectory = null;
@@ -738,7 +738,7 @@ async function loadScene() {
       updateTrajectoryMarker(0);
     }
     setMode('orbit');
-    setStatus(`Manifest ready · loading ${manifest.chunks.length.toLocaleString()} chunks…`);
+    setStatus(`清单已就绪 · 正在加载 ${manifest.chunks.length.toLocaleString()} 个分块…`);
     await loadChunks(manifest, loadToken);
   } catch (error) {
     if (state.activeLoadToken === loadToken) setStatus(error && error.message ? error.message : String(error), true);
@@ -829,7 +829,7 @@ function wireControls() {
   });
   elements.dataset.addEventListener('change', () => {
     applyDatasetSelection();
-    if (elements.dataset.value !== 'custom') setStatus('Dataset selected. Choose “Load selected dataset” to stream it.');
+    if (elements.dataset.value !== 'custom') setStatus('已选择数据集，请点击“加载所选数据集”开始流式加载。');
   });
   elements.trajectoryInput.addEventListener('input', syncTrajectoryInputExplicitEmpty);
   elements.orbitButton.addEventListener('click', () => setMode('orbit'));
@@ -850,8 +850,8 @@ function wireControls() {
     if (state.manifest) {
       frameScene();
       updateTrajectoryMarker(0);
-      setStatus(`Ready · ${state.loadedPointCount.toLocaleString()} points in ${state.loadedChunkCount} chunks`);
-    } else setStatus('Viewer reset. Choose a dataset or provide a manifest URL.');
+      setStatus(`已就绪 · ${state.loadedPointCount.toLocaleString()} 个点 · ${state.loadedChunkCount} 个分块`);
+    } else setStatus('视角已重置。请选择数据集，或直接提供 manifest 地址。');
   });
   elements.trajectoryVisible.addEventListener('change', () => {
     if (trajectoryGroup) trajectoryGroup.visible = elements.trajectoryVisible.checked;
@@ -889,7 +889,7 @@ function applyQueryParameters() {
           elements.trajectoryInput.dataset.explicitEmpty = elements.trajectoryInput.value.trim() === '' ? 'true' : 'false';
         }
       }
-      else setStatus(`Dataset "${datasetName}" is not in the catalog; loading the supplied custom manifest.`);
+      else setStatus(`数据集“${datasetName}”不在目录中，正在加载你提供的自定义清单。`);
     } else if (datasetName === 'custom' && typeof trajectory !== 'string') {
       elements.trajectoryInput.value = '';
       elements.trajectoryInput.dataset.explicitEmpty = 'false';
@@ -903,7 +903,7 @@ function applyQueryParameters() {
       applyDatasetSelection();
       return true;
     }
-    setStatus(`Dataset "${datasetName}" is not in the catalog. Choose a dataset or provide a manifest URL.`, true);
+    setStatus(`数据集“${datasetName}”不在目录中。请选择一个数据集，或直接提供 manifest 地址。`, true);
   }
   return false;
 }
@@ -912,7 +912,7 @@ async function initializeViewer() {
   await loadCatalog();
   if (applyQueryParameters()) void loadScene();
 }
-initializeViewer().catch(error => setStatus(`Viewer initialization failed: ${error.message}`, true));
+initializeViewer().catch(error => setStatus(`查看器初始化失败：${error.message}`, true));
 </script>
 </body>
 </html>

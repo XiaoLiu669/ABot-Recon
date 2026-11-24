@@ -3,131 +3,166 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ABot-Recon · 视频转 3D 空间</title>
+<title>ABot-Recon · 视频三维空间量测工作台</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
-<header class="hero">
-  <div class="hero-inner">
-    <div class="brand">
-      <span class="brand-mark">3D</span>
-      <div>
-        <h1>ABot-Recon · 视频转 3D 空间</h1>
-        <p class="tagline">上传一段普通视频，得到带颜色的三维点云和相机轨迹</p>
+<div class="sheet">
+
+  <!-- 标题栏：仿工程图纸的标题块 -->
+  <header class="titleblock">
+    <div class="tb-brand">
+      <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="13.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M20 2.5V12M20 28v9.5M2.5 20H12M28 20h9.5" stroke="currentColor" stroke-width="1.4"/>
+        <circle cx="20" cy="20" r="2.4" fill="currentColor"/>
+      </svg>
+      <div class="tb-names">
+        <div class="tb-name">ABOT&#8209;RECON</div>
+        <div class="tb-sub">视频三维空间量测工作台</div>
       </div>
     </div>
-    <div class="hero-meta" id="heroMeta">正在读取本机信息…</div>
-  </div>
-</header>
+    <dl class="tb-meta">
+      <div><dt>图号</dt><dd id="tbSheet">—</dd></div>
+      <div><dt>网格</dt><dd id="tbGrid">—</dd></div>
+      <div><dt>数据源</dt><dd id="tbSource">—</dd></div>
+      <div><dt>状态</dt><dd id="tbStatus">就绪</dd></div>
+    </dl>
+  </header>
 
-<main class="layout">
+  <!-- 主张区：文案 + 实测轨迹平面图（签名元素） -->
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">流式重建 · 固定 12 帧局部窗口</p>
+      <h1>把一段视频<br>量成可测的三维空间</h1>
+      <p class="lede">
+        上传一段行驶或行走的视频，ABot&#8209;Recon 逐帧重建彩色点云与相机轨迹，
+        并给出可以直接量距离的平面图和可绕看的三维视图。
+      </p>
+      <dl class="hero-facts">
+        <div><dt>已测点数</dt><dd id="heroPts">—</dd></div>
+        <div><dt>轨迹长度</dt><dd id="heroLen">—</dd></div>
+        <div><dt>重建帧数</dt><dd id="heroFrames">—</dd></div>
+      </dl>
+    </div>
 
-  <!-- ① 上传 -->
-  <section class="card" id="cardUpload">
-    <h2><span class="step">1</span>上传视频</h2>
-    <div class="dropzone" id="dropzone">
-      <input type="file" id="fileInput" accept="video/*" hidden>
-      <div class="dz-empty" id="dzEmpty">
-        <svg viewBox="0 0 24 24" class="dz-icon" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        <p class="dz-title">把视频拖到这里，或<button type="button" class="linkbtn" id="pickBtn">选择文件</button></p>
-        <p class="dz-hint">支持 mp4 / mov / mkv / avi 等常见格式，最大 4 GB</p>
-      </div>
-      <div class="dz-file" id="dzFile" hidden>
-        <video id="preview" muted playsinline></video>
-        <div class="dz-meta">
-          <p class="dz-name" id="fileName"></p>
-          <p class="dz-size" id="fileSize"></p>
-          <button type="button" class="ghost" id="clearBtn">换一个视频</button>
+    <figure class="plot" id="plot">
+      <figcaption><span>实测轨迹 · 俯视平面</span><span class="plot-scale" id="plotScale"></span></figcaption>
+      <svg id="plotSvg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="相机轨迹俯视平面图"></svg>
+      <p class="plot-empty" id="plotEmpty">尚未测量 —— 上传视频并重建后，此处会画出实测轨迹平面图</p>
+    </figure>
+  </section>
+
+  <div class="workspace">
+
+    <!-- 左：控制台 -->
+    <section class="console">
+      <h2 class="rule-title"><span>控制台</span></h2>
+
+      <div class="block">
+        <h3>上传视频</h3>
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="video/*" hidden>
+          <div class="dz-empty" id="dzEmpty">
+            <svg viewBox="0 0 24 24" class="dz-icon" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            <p class="dz-title">拖入视频，或<button type="button" class="linkbtn" id="pickBtn">选择文件</button></p>
+            <p class="dz-hint">mp4 / mov / mkv / avi，单个最大 4 GB</p>
+          </div>
+          <div class="dz-file" id="dzFile" hidden>
+            <video id="preview" muted playsinline></video>
+            <div class="dz-meta">
+              <p class="dz-name" id="fileName"></p>
+              <p class="dz-size" id="fileSize"></p>
+              <button type="button" class="ghost" id="clearBtn">换一个视频</button>
+            </div>
+          </div>
         </div>
+        <p class="error" id="uploadError" hidden></p>
       </div>
-    </div>
-    <p class="error" id="uploadError" hidden></p>
-  </section>
 
-  <!-- ② 参数 -->
-  <section class="card" id="cardOptions">
-    <h2><span class="step">2</span>重建参数</h2>
-    <div class="opts">
-      <label class="opt">
-        <span>抽帧率</span>
-        <select id="optFps">
-          <option value="1">1 fps（最长轨迹）</option>
-          <option value="2">2 fps</option>
-          <option value="4" selected>4 fps（推荐）</option>
-          <option value="8">8 fps</option>
-          <option value="15">15 fps（最密）</option>
-        </select>
-        <small>视频里每秒取几帧参与重建。帧越多点越密，耗时也越长。</small>
-      </label>
-      <label class="opt">
-        <span>计算精度</span>
-        <select id="optDtype">
-          <option value="fp16" selected>fp16（本机推荐）</option>
-          <option value="bf16">bf16（需要 sm_80+）</option>
-          <option value="fp32">fp32（最慢）</option>
-        </select>
-        <small>Turing 卡（2080 Ti）必须用 fp16，否则会退化到极慢的路径。</small>
-      </label>
-      <label class="opt">
-        <span>置信度阈值</span>
-        <input type="number" id="optThreshold" value="0.01" min="0" max="1" step="0.01">
-        <small>低于该置信度的点会被丢掉，数值越大点云越干净但越稀疏。</small>
-      </label>
-    </div>
-    <div class="actions">
-      <button type="button" class="primary" id="runBtn" disabled>开始重建</button>
-      <span class="hint" id="runHint">请先上传视频</span>
-    </div>
-  </section>
+      <div class="block">
+        <h3>重建参数</h3>
+        <div class="opts">
+          <label class="opt">
+            <span>抽帧率</span>
+            <select id="optFps">
+              <option value="1">1 fps</option>
+              <option value="2">2 fps</option>
+              <option value="4" selected>4 fps</option>
+              <option value="8">8 fps</option>
+              <option value="15">15 fps</option>
+            </select>
+            <small>每秒取几帧参与重建。帧越多点越密，耗时越长。</small>
+          </label>
+          <label class="opt">
+            <span>计算精度</span>
+            <select id="optDtype">
+              <option value="fp16" selected>fp16</option>
+              <option value="bf16">bf16</option>
+              <option value="fp32">fp32</option>
+            </select>
+            <small>Turing 卡（2080 Ti）必须用 fp16，否则退化到极慢路径。</small>
+          </label>
+          <label class="opt">
+            <span>置信度阈值</span>
+            <input type="number" id="optThreshold" value="0.01" min="0" max="1" step="0.01">
+            <small>低于该值的点会被丢弃，越大越干净也越稀疏。</small>
+          </label>
+        </div>
+        <button type="button" class="primary" id="runBtn" disabled>开始重建</button>
+        <p class="hint" id="runHint">请先上传视频</p>
+      </div>
 
-  <!-- ③ 进度 -->
-  <section class="card" id="cardProgress" hidden>
-    <h2><span class="step">3</span>重建进度</h2>
-    <div class="progress-head">
-      <span class="phase" id="phaseText">准备中</span>
-      <span class="percent" id="percentText">0%</span>
-    </div>
-    <div class="bar"><div class="bar-fill" id="barFill"></div></div>
-    <pre class="log" id="logBox"></pre>
-  </section>
+      <div class="block" id="cardProgress" hidden>
+        <h3>重建进度</h3>
+        <div class="progress-head">
+          <span class="phase" id="phaseText">准备中</span>
+          <span class="percent" id="percentText">0%</span>
+        </div>
+        <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+        <pre class="log" id="logBox"></pre>
+      </div>
+    </section>
 
-  <!-- ④ 结果 -->
-  <section class="card" id="cardResult" hidden>
-    <h2><span class="step">4</span>重建结果</h2>
-    <div class="stats" id="resultStats"></div>
-    <div class="result-body">
-      <div class="viewer-wrap">
-        <div class="viewer-head">
-          <span>3D 点云（可拖拽旋转 / 滚轮缩放 / 切到“行车播放”沿轨迹前进）</span>
+    <!-- 右：成果 -->
+    <section class="output">
+      <h2 class="rule-title"><span>成果</span></h2>
+
+      <div class="stats" id="resultStats"></div>
+
+      <div class="viewport">
+        <div class="vp-head">
+          <span>三维视口 · 可拖拽旋转 / 滚轮缩放 / 切到「行车播放」沿轨迹前进</span>
           <a class="linkbtn" id="openViewer" target="_blank" rel="noopener">新标签页打开</a>
         </div>
-        <p class="viewer-note">首次打开需从 CDN 拉取 three.js 并加载点云分块，约 5~10 秒；加载完成后左下角会显示「Ready · N points」。</p>
+        <p class="vp-note">首次打开需从 CDN 拉取 three.js 并加载点云分块，约 5~10 秒；完成后视口左下角显示「已就绪 · N 个点 · M 个分块」。</p>
         <iframe id="viewerFrame" title="ABot-Recon 点云查看器"></iframe>
       </div>
-      <aside class="side">
-        <div class="side-block">
-          <h3>相机轨迹（俯视）</h3>
-          <img id="bevImage" alt="相机轨迹俯视图">
-        </div>
-        <div class="side-block">
-          <h3>下载</h3>
+
+      <div class="block">
+        <h3>下载</h3>
+        <div class="dls">
           <a class="dl" id="dlPly" download>点云 PLY</a>
-          <a class="dl" id="dlPoses" download>相机位姿 camera_poses.npy</a>
-          <a class="dl" id="dlManifest" download>点云清单 manifest.json</a>
-          <a class="dl" id="dlBev" download>轨迹俯视图 PNG</a>
+          <a class="dl" id="dlPoses" download>相机位姿 <span>camera_poses.npy</span></a>
+          <a class="dl" id="dlManifest" download>点云清单 <span>manifest.json</span></a>
+          <a class="dl" id="dlBev" download>轨迹俯视图 <span>PNG</span></a>
         </div>
-      </aside>
-    </div>
-  </section>
+      </div>
 
-  <!-- ⑤ 历史 -->
-  <section class="card" id="cardHistory">
-    <h2><span class="step">5</span>历史任务</h2>
-    <div id="historyList" class="history">还没有任务。</div>
-  </section>
+      <div class="block">
+        <h3>历史记录</h3>
+        <div id="historyList" class="history">还没有量测记录。</div>
+      </div>
+    </section>
+  </div>
 
-</main>
+  <footer class="foot">
+    <span>ABot&#8209;Recon · 本地运行，权重不上传</span>
+    <span id="footMeta">—</span>
+  </footer>
+</div>
 
 <script src="/assets/app.js"></script>
 </body>

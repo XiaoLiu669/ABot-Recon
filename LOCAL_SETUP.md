@@ -182,6 +182,33 @@ slow `MATH` path.
 The point-cloud viewer loads three.js from a CDN, so the first render needs
 network access and takes a few seconds.
 
+### Front-end design
+
+The web UI is laid out like a **survey drawing** rather than a generic
+dashboard: a cold grey sheet with a faint grid, double-rule title block,
+serif headings, monospaced numerals, a vermilion signal colour and a teal data
+colour.
+
+Its signature element is the **measured trajectory plan** drawn at the top of
+the page. `webapp/static/app.js` reads `point_cloud_chunks/trajectory.json`,
+projects the camera positions onto the X/Z plane and renders them as inline
+SVG with a metre grid, corner registration marks, X/Z dimension lines, a north
+arrow, a scale bar, start/end markers and the total path length. The plan is
+redrawn from scratch for every run, so the page always shows the real numbers
+of the current measurement rather than a decorative graphic. On a narrow
+viewport (<1080 px) the hero and the workspace collapse to a single column.
+
+On page load the app automatically opens the most recent successful run, so the
+plan, the headline figures and the download links are populated without any
+click.
+
+### Chinese viewer copy
+
+`tools/point_cloud_viewer.html` already had Chinese control labels upstream,
+but the status line, the reset/download prompts and the error messages were
+still English. Those strings are now Chinese as well, including the ones that
+are only reachable when a manifest URL is wrong.
+
 ## Known environment pitfalls
 
 * **Two `pip` runs against the same venv** fail with
