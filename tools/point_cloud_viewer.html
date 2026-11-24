@@ -34,6 +34,14 @@
   .status { min-height: 34px; padding: 8px; border-top: 1px solid rgba(255,255,255,.1); color: #a8b5c4; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
   .status.error { color: #ff9c93; }
   .hint { position: fixed; right: 14px; bottom: 12px; z-index: 1; color: #77828f; font-size: 11px; line-height: 1.55; text-align: right; pointer-events: none; }
+  button.panel-toggle {
+    position: fixed; top: 14px; right: 14px; z-index: 3; flex: none; min-height: 0;
+    padding: 6px 11px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px;
+    background: rgba(9,12,17,.86); color: #dce5f1; font-size: 11px; font-weight: 600;
+    cursor: pointer; backdrop-filter: blur(8px);
+  }
+  button.panel-toggle:hover { background: rgba(28,38,54,.94); }
+  body.panel-hidden .panel { display: none; }
   details { border-top: 1px solid rgba(255,255,255,.09); padding-top: 8px; color: #aeb9c7; font-size: 11px; }
   summary { cursor: pointer; color: #dce5f1; font-weight: 600; }
   details p { margin: 6px 0 0; line-height: 1.55; }
@@ -78,6 +86,7 @@
   </details>
   <div id="status" class="status" role="status" aria-live="polite">请选择数据集或输入 manifest 地址。</div>
 </section>
+<button id="panelToggle" class="panel-toggle" type="button" aria-pressed="false">控制面板</button>
 <div class="hint">左键拖拽 · 旋转 / 改变朝向<br>右键或 Shift+左键拖拽 · 平移<br>滚轮 · 缩放</div>
 <script type="module">
 'use strict';
@@ -88,6 +97,7 @@ const elementIds = [
   'cameraHeight', 'cameraBackoff', 'status',
   'playbackProgressValue', 'playbackSpeedValue', 'pointSizeValue', 'viewFovValue',
   'cameraHeightValue', 'cameraBackoffValue',
+  'panelToggle',
 ];
 const elements = Object.fromEntries(elementIds.map(id => [id, document.getElementById(id)]));
 const canvas = document.getElementById('canvas');
@@ -822,7 +832,20 @@ function updateProgressFromControl() {
   if (state.mode === 'drive') applyDriveCamera(progress);
   else updateTrajectoryMarker(progress);
 }
+function wirePanelToggle() {
+  const apply = (hidden) => {
+    document.body.classList.toggle('panel-hidden', hidden);
+    elements.panelToggle.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+    elements.panelToggle.textContent = hidden ? '控制面板' : '隐藏面板';
+  };
+  elements.panelToggle.addEventListener('click', () => {
+    apply(!document.body.classList.contains('panel-hidden'));
+  });
+  // 嵌在网页里时默认收起面板，把画布宽度让给点云
+  apply(window.self !== window.top);
+}
 function wireControls() {
+  wirePanelToggle();
   elements.loadDataset.addEventListener('click', () => {
     applyDatasetSelection();
     void loadScene();

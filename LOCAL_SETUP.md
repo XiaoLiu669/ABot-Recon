@@ -184,23 +184,38 @@ network access and takes a few seconds.
 
 ### Front-end design
 
-The web UI is laid out like a **survey drawing** rather than a generic
-dashboard: a cold grey sheet with a faint grid, double-rule title block,
-serif headings, monospaced numerals, a vermilion signal colour and a teal data
-colour.
+The web UI is laid out as an **instrument bench**, not a landing page:
 
-Its signature element is the **measured trajectory plan** drawn at the top of
-the page. `webapp/static/app.js` reads `point_cloud_chunks/trajectory.json`,
-projects the camera positions onto the X/Z plane and renders them as inline
-SVG with a metre grid, corner registration marks, X/Z dimension lines, a north
-arrow, a scale bar, start/end markers and the total path length. The plan is
-redrawn from scratch for every run, so the page always shows the real numbers
-of the current measurement rather than a decorative graphic. On a narrow
-viewport (<1080 px) the hero and the workspace collapse to a single column.
+```
+head        brand  +  drawing title block (图号 / 网格 / 数据源 / 状态, celled)
+readout     five live readings (点数 / 轨迹长度 / 帧数 / 分块 / 耗时)
+workspace   ┌ console 330px ┐ ┌ results ─────────────────────────┐
+            │ upload        │ │ ┌ trajectory plan ┬ 3D viewport ┐│
+            │ parameters    │ │ └─────────────────┴──────────────┘│
+            │ progress      │ │ downloads        │ run history   │
+```
+
+The trajectory plan and the 3D viewport sit side by side because they are two
+projections of the same measurement — you read the plan and look at the cloud
+at the same time instead of scrolling between them. The page has no marketing
+band and no headline: the measurements themselves are the content.
+
+**Type — two voices, no serif.** `Cascadia Mono` carries every Latin string,
+numeral, label and log line (the technical voice); `Noto Sans SC` carries the
+Chinese prose and headings. A serif display face (宋体) was deliberately
+dropped: a large serif Chinese heading on a grey background is the most
+recognisable generated-page default.
+
+**The plan is drawn 1:1 in pixels.** `app.js` sets the SVG `viewBox` to the
+element's real pixel size, so one SVG unit is one CSS pixel and the type stays
+at its true size no matter how narrow the column gets (a fixed `viewBox`
+would scale 10.5 px text down to 6 px in a half-width column). A
+`ResizeObserver` redraws it when the container resizes. The metre grid only
+marks values inside the measured extent, so no label can end up outside the
+drawing frame.
 
 On page load the app automatically opens the most recent successful run, so the
-plan, the headline figures and the download links are populated without any
-click.
+plan, the readings and the download links are populated without any click.
 
 ### Chinese viewer copy
 
@@ -208,6 +223,12 @@ click.
 but the status line, the reset/download prompts and the error messages were
 still English. Those strings are now Chinese as well, including the ones that
 are only reachable when a manifest URL is wrong.
+
+The viewer also gained a **panel toggle**: the control panel is a fixed 328 px
+overlay, which left only ~170 px of canvas when the viewer was embedded in a
+half-width column. Embedded in the web app the panel now starts collapsed
+(`window.self !== window.top`) and the toggle in the top-right corner brings
+it back, so the point cloud gets the full width.
 
 ## Known environment pitfalls
 

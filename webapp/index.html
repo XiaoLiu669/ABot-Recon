@@ -3,27 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ABot-Recon · 视频三维空间量测工作台</title>
+<title>ABot-Recon · 视频三维空间量测台</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
-<div class="sheet">
+<div class="bench">
 
-  <!-- 标题栏：仿工程图纸的标题块 -->
-  <header class="titleblock">
-    <div class="tb-brand">
+  <!-- 标题块：左侧标识 + 右侧图纸标题栏（分格） -->
+  <header class="head">
+    <div class="brand">
       <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
         <circle cx="20" cy="20" r="13.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
         <path d="M20 2.5V12M20 28v9.5M2.5 20H12M28 20h9.5" stroke="currentColor" stroke-width="1.4"/>
         <circle cx="20" cy="20" r="2.4" fill="currentColor"/>
       </svg>
-      <div class="tb-names">
-        <div class="tb-name">ABOT&#8209;RECON</div>
-        <div class="tb-sub">视频三维空间量测工作台</div>
+      <div class="brand-text">
+        <div class="brand-name">ABOT&#8209;RECON</div>
+        <div class="brand-sub">视频三维空间量测台</div>
       </div>
     </div>
-    <dl class="tb-meta">
+    <dl class="titleblock">
       <div><dt>图号</dt><dd id="tbSheet">—</dd></div>
       <div><dt>网格</dt><dd id="tbGrid">—</dd></div>
       <div><dt>数据源</dt><dd id="tbSource">—</dd></div>
@@ -31,28 +31,13 @@
     </dl>
   </header>
 
-  <!-- 主张区：文案 + 实测轨迹平面图（签名元素） -->
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">流式重建 · 固定 12 帧局部窗口</p>
-      <h1>把一段视频<br>量成可测的三维空间</h1>
-      <p class="lede">
-        上传一段行驶或行走的视频，ABot&#8209;Recon 逐帧重建彩色点云与相机轨迹，
-        并给出可以直接量距离的平面图和可绕看的三维视图。
-      </p>
-      <dl class="hero-facts">
-        <div><dt>已测点数</dt><dd id="heroPts">—</dd></div>
-        <div><dt>轨迹长度</dt><dd id="heroLen">—</dd></div>
-        <div><dt>重建帧数</dt><dd id="heroFrames">—</dd></div>
-      </dl>
-    </div>
-
-    <figure class="plot" id="plot">
-      <figcaption><span>实测轨迹 · 俯视平面</span><span class="plot-scale" id="plotScale"></span></figcaption>
-      <svg id="plotSvg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" role="img"
-           aria-label="相机轨迹俯视平面图"></svg>
-      <p class="plot-empty" id="plotEmpty">尚未测量 —— 上传视频并重建后，此处会画出实测轨迹平面图</p>
-    </figure>
+  <!-- 读数条：本次量测的五个读数 -->
+  <section class="readout">
+    <div class="ro"><span class="ro-k">已测点数</span><b id="heroPts">—</b></div>
+    <div class="ro"><span class="ro-k">轨迹长度</span><b id="heroLen">—</b></div>
+    <div class="ro"><span class="ro-k">重建帧数</span><b id="heroFrames">—</b></div>
+    <div class="ro"><span class="ro-k">点云分块</span><b id="heroChunks">—</b></div>
+    <div class="ro"><span class="ro-k">推理耗时</span><b id="heroElapsed">—</b></div>
   </section>
 
   <div class="workspace">
@@ -128,38 +113,46 @@
 
     <!-- 右：成果 -->
     <section class="output">
-      <h2 class="rule-title"><span>成果</span></h2>
+      <div class="views">
 
-      <div class="stats" id="resultStats"></div>
+        <figure class="plot" id="plot">
+          <figcaption><span>实测轨迹 · 俯视平面</span><span class="plot-scale" id="plotScale"></span></figcaption>
+          <svg id="plotSvg" preserveAspectRatio="xMidYMid meet" role="img"
+               aria-label="相机轨迹俯视平面图"></svg>
+          <p class="plot-empty" id="plotEmpty">尚未测量 —— 上传视频并重建后，此处会画出实测轨迹平面图</p>
+        </figure>
 
-      <div class="viewport">
-        <div class="vp-head">
-          <span>三维视口 · 可拖拽旋转 / 滚轮缩放 / 切到「行车播放」沿轨迹前进</span>
-          <a class="linkbtn" id="openViewer" target="_blank" rel="noopener">新标签页打开</a>
-        </div>
-        <p class="vp-note">首次打开需从 CDN 拉取 three.js 并加载点云分块，约 5~10 秒；完成后视口左下角显示「已就绪 · N 个点 · M 个分块」。</p>
-        <iframe id="viewerFrame" title="ABot-Recon 点云查看器"></iframe>
-      </div>
-
-      <div class="block">
-        <h3>下载</h3>
-        <div class="dls">
-          <a class="dl" id="dlPly" download>点云 PLY</a>
-          <a class="dl" id="dlPoses" download>相机位姿 <span>camera_poses.npy</span></a>
-          <a class="dl" id="dlManifest" download>点云清单 <span>manifest.json</span></a>
-          <a class="dl" id="dlBev" download>轨迹俯视图 <span>PNG</span></a>
+        <div class="viewport">
+          <div class="vp-head">
+            <span>三维视口 · 拖拽旋转 / 滚轮缩放</span>
+            <a class="linkbtn" id="openViewer" target="_blank" rel="noopener">新标签页打开</a>
+          </div>
+          <iframe id="viewerFrame" title="ABot-Recon 点云查看器"></iframe>
+          <p class="vp-note">控制面板默认收起，点右上角「控制面板」可展开；首次打开需从 CDN 拉取 three.js 并加载点云分块，约 5~10 秒。</p>
         </div>
       </div>
 
-      <div class="block">
-        <h3>历史记录</h3>
-        <div id="historyList" class="history">还没有量测记录。</div>
+      <div class="outfoot">
+        <div class="block">
+          <h3>下载</h3>
+          <div class="dls">
+            <a class="dl" id="dlPly" download>点云 PLY</a>
+            <a class="dl" id="dlPoses" download>相机位姿 <span>camera_poses.npy</span></a>
+            <a class="dl" id="dlManifest" download>点云清单 <span>manifest.json</span></a>
+            <a class="dl" id="dlBev" download>轨迹俯视图 <span>PNG</span></a>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>历史记录</h3>
+          <div id="historyList" class="history">还没有量测记录。</div>
+        </div>
       </div>
     </section>
   </div>
 
   <footer class="foot">
-    <span>ABot&#8209;Recon · 本地运行，权重不上传</span>
+    <span>本地运行 · 权重不上传</span>
     <span id="footMeta">—</span>
   </footer>
 </div>

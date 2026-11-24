@@ -8,11 +8,12 @@ const els = {
   uploadError: $('uploadError'), optFps: $('optFps'), optDtype: $('optDtype'), optThreshold: $('optThreshold'),
   runBtn: $('runBtn'), runHint: $('runHint'), cardProgress: $('cardProgress'), phaseText: $('phaseText'),
   percentText: $('percentText'), barFill: $('barFill'), logBox: $('logBox'),
-  resultStats: $('resultStats'), viewerFrame: $('viewerFrame'), openViewer: $('openViewer'),
+  viewerFrame: $('viewerFrame'), openViewer: $('openViewer'),
   dlPly: $('dlPly'), dlPoses: $('dlPoses'), dlManifest: $('dlManifest'), dlBev: $('dlBev'),
   historyList: $('historyList'),
-  plotSvg: $('plotSvg'), plotEmpty: $('plotEmpty'), plotScale: $('plotScale'),
+  plot: $('plot'), plotSvg: $('plotSvg'), plotEmpty: $('plotEmpty'), plotScale: $('plotScale'),
   heroPts: $('heroPts'), heroLen: $('heroLen'), heroFrames: $('heroFrames'),
+  heroChunks: $('heroChunks'), heroElapsed: $('heroElapsed'),
   tbSheet: $('tbSheet'), tbGrid: $('tbGrid'), tbSource: $('tbSource'), tbStatus: $('tbStatus'),
   footMeta: $('footMeta'),
 };
@@ -27,7 +28,10 @@ let lastPoints = null;   // { positions, runId }
    轨迹平面图 —— 本页的签名元素
    把一次量测画成工程图纸：米制网格、尺寸线、总长、指北针、比例尺
    ══════════════════════════════════════════════════════════════════════ */
-const PLOT = { w: 1000, h: 620, pad: { l: 92, r: 52, t: 48, b: 96 } };
+const PLOT = {
+  pad: { l: 78, r: 38, t: 32, b: 88 },
+  padNarrow: { l: 48, r: 18, t: 24, b: 72 },
+};
 const NS = 'http://www.w3.org/2000/svg';
 
 function el(name, attrs, text) {
@@ -67,8 +71,16 @@ function drawPlot(points, meta) {
   svg.innerHTML = '';
   if (!points || points.length < 2) { clearPlot(); return; }
 
-  const areaW = PLOT.w - PLOT.pad.l - PLOT.pad.r;
-  const areaH = PLOT.h - PLOT.pad.t - PLOT.pad.b;
+  // SVG 以 1:1 像素绘制：坐标即屏幕像素，字号由 CSS 控制，任何宽度下都真实可读
+  const width = Math.round(svg.clientWidth || 520);
+  const height = Math.round(svg.clientHeight || 320);
+  if (width < 60 || height < 60) return;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+  const narrow = width < 430;
+  const pad = narrow ? PLOT.padNarrow : PLOT.pad;
+  const areaW = Math.max(50, width - pad.l - pad.r);
+  const areaH = Math.max(50, height - pad.t - pad.b);
 
   const xs = points.map((p) => p[0]);
   const zs = points.map((p) => p[1]);
@@ -81,19 +93,19 @@ function drawPlot(points, meta) {
   const scale = Math.min(areaW / spanX, areaH / spanZ);
   const drawW = spanX * scale;
   const drawH = spanZ * scale;
-  const ox = PLOT.pad.l + (areaW - drawW) / 2;
-  const oy = PLOT.pad.t + (areaH - drawH) / 2;
+  const ox = pad.l + (areaW - drawW) / 2;
+  const oy = pad.t + (areaH - drawH) / 2;
   const X = (v) => ox + (v - minX) * scale;
   const Y = (v) => oy + drawH - (v - minZ) * scale;   // Z 向上为正
 
-  const step = niceStep(Math.max(spanX, spanZ), 6);
+  const step = niceStep(Math.max(spanX, spanZ), narrow ? 4 : 6);
 
   // 图框与四角定位标记
   svg.appendChild(el('rect', {
     x: ox, y: oy, width: drawW, height: drawH,
     fill: 'none', stroke: 'var(--rule)', 'stroke-width': 1.4,
   }));
-  const corner = 13;
+  const corner = 11;
   [[ox, oy, 1, 1], [ox + drawW, oy, -1, 1], [ox, oy + drawH, 1, -1], [ox + drawW, oy + drawH, -1, -1]]
     .forEach(([cx, cy, sx, sy]) => {
       svg.appendChild(el('path', {
@@ -102,19 +114,19 @@ function drawPlot(points, meta) {
       }));
     });
 
-  // 米制网格（对齐到绝对 0 点，像真实坐标网）
-  const firstX = Math.floor(minX / step) * step;
-  for (let v = firstX; v <= maxX + step * 0.5; v += step) {
+  // 米制网格（对齐到绝对 0 点，但只画在量测范围内，避免标签跑到图框外）
+  const firstX = Math.ceil(minX / step) * step;
+  for (let v = firstX; v <= maxX; v += step) {
     const x = X(v);
     svg.appendChild(el('line', {
       class: 'grid-line', x1: x, y1: oy, x2: x, y2: oy + drawH,
     }));
     svg.appendChild(el('text', {
-      class: 'grid-text', x, y: oy + drawH + 20, 'text-anchor': 'middle',
+      class: 'grid-text', x, y: oy + drawH + (narrow ? 13 : 17), 'text-anchor': 'middle',
     }, String(Math.round(v))));
   }
-  const firstZ = Math.floor(minZ / step) * step;
-  for (let v = firstZ; v <= maxZ + step * 0.5; v += step) {
+  const firstZ = Math.ceil(minZ / step) * step;
+  for (let v = firstZ; v <= maxZ; v += step) {
     const y = Y(v);
     svg.appendChild(el('line', {
       class: 'grid-line', x1: ox, y1: y, x2: ox + drawW, y2: y,
@@ -143,7 +155,7 @@ function drawPlot(points, meta) {
   }, '止'));
 
   // 尺寸线：X 向总尺寸
-  const dimY = oy + drawH + 46;
+  const dimY = oy + drawH + (narrow ? 30 : 40);
   svg.appendChild(el('line', { class: 'dim-line', x1: ox, y1: dimY, x2: ox + drawW, y2: dimY }));
   [[ox, 1], [ox + drawW, -1]].forEach(([hx, dir]) => {
     svg.appendChild(el('path', {
@@ -156,7 +168,7 @@ function drawPlot(points, meta) {
   }, `X ${spanX.toFixed(1)} m`));
 
   // 尺寸线：Z 向总尺寸
-  const dimX = ox - 54;
+  const dimX = ox - (narrow ? 30 : 52);
   svg.appendChild(el('line', { class: 'dim-line', x1: dimX, y1: oy, x2: dimX, y2: oy + drawH }));
   [[oy, 1], [oy + drawH, -1]].forEach(([hy, dir]) => {
     svg.appendChild(el('path', {
@@ -165,35 +177,37 @@ function drawPlot(points, meta) {
     }));
   });
   const zLabel = el('text', {
-    class: 'dim-text', x: dimX - 10, y: oy + drawH / 2, 'text-anchor': 'middle',
-    transform: `rotate(-90 ${dimX - 10} ${oy + drawH / 2})`,
+    class: 'dim-text', x: dimX - (narrow ? 8 : 10), y: oy + drawH / 2, 'text-anchor': 'middle',
+    transform: `rotate(-90 ${dimX - (narrow ? 8 : 10)} ${oy + drawH / 2})`,
   }, `Z ${spanZ.toFixed(1)} m`);
   svg.appendChild(zLabel);
 
   // 轨迹总长标注
   const length = pathLength(points);
   svg.appendChild(el('text', {
-    class: 'note-text', x: ox + 12, y: oy + 26,
+    class: 'note-text', x: ox + 10, y: oy + 16,
   }, `轨迹长 ${length.toFixed(1)} m`));
 
   // 指北针
-  const nx = PLOT.w - PLOT.pad.r + 18;
-  const ny = PLOT.pad.t + 34;
+  const nx = Math.min(width - 13, width - pad.r + 8);
+  const ny = pad.t + 24;
   svg.appendChild(el('path', {
     class: 'north',
-    d: `M${nx} ${ny - 20}L${nx - 8} ${ny + 6}L${nx} ${ny + 1}L${nx + 8} ${ny + 6}Z`,
+    d: `M${nx} ${ny - 18}L${nx - 7} ${ny + 5}L${nx} ${ny + 1}L${nx + 7} ${ny + 5}Z`,
   }));
-  svg.appendChild(el('text', { class: 'north-text', x: nx, y: ny + 24, 'text-anchor': 'middle' }, 'N'));
+  svg.appendChild(el('text', { class: 'north-text', x: nx, y: ny + 21, 'text-anchor': 'middle' }, 'N'));
 
-  // 比例尺
-  const barLen = 2 * step * scale;
-  const bx = ox + 14;
-  const by = oy + drawH - 16;
-  svg.appendChild(el('rect', { class: 'bar-block', x: bx, y: by, width: barLen / 2, height: 6 }));
-  svg.appendChild(el('rect', { class: 'bar-outline', x: bx, y: by, width: barLen, height: 6 }));
-  svg.appendChild(el('text', { class: 'grid-text', x: bx, y: by + 22, 'text-anchor': 'middle' }, '0'));
-  svg.appendChild(el('text', { class: 'grid-text', x: bx + barLen, y: by + 22, 'text-anchor': 'middle' },
-    String(Math.round(2 * step))));
+  // 比例尺：放在图框外、与 X 尺寸线同一带，避免压住图内的起止标记
+  let barUnits = 2 * step;
+  let barLen = barUnits * scale;
+  if (barLen > drawW * 0.86) { barUnits = step; barLen = barUnits * scale; }
+  const bx = ox + drawW - barLen;
+  const by = dimY + (narrow ? 10 : 13);
+  svg.appendChild(el('rect', { class: 'bar-block', x: bx, y: by, width: barLen / 2, height: 5 }));
+  svg.appendChild(el('rect', { class: 'bar-outline', x: bx, y: by, width: barLen, height: 5 }));
+  svg.appendChild(el('text', { class: 'grid-text', x: bx, y: by + 15, 'text-anchor': 'middle' }, '0'));
+  svg.appendChild(el('text', { class: 'grid-text', x: bx + barLen, y: by + 15, 'text-anchor': 'middle' },
+    String(Math.round(barUnits))));
 
   // 收尾：状态文字与图纸信息
   els.plotEmpty.hidden = true;
@@ -224,11 +238,27 @@ async function loadTrajectory(runId, meta) {
     const data = await response.json();
     const raw = data.positions || [];
     const points = raw.map((p) => [Number(p[0]), Number(p[2])]);   // 俯视平面取 X / Z
-    lastPoints = { points, runId };
-    drawPlot(points, Object.assign({ runId }, meta || {}));
+    const plotMeta = Object.assign({ runId }, meta || {});
+    lastPoints = { points, meta: plotMeta };
+    drawPlot(points, plotMeta);
   } catch (error) {
     clearPlot();
   }
+}
+
+/* 容器尺寸变化时按新的像素尺寸重绘（1:1 绘制必须知道真实像素） */
+function watchPlotSize() {
+  if (!window.ResizeObserver) return;
+  let pending = false;
+  const observer = new ResizeObserver(() => {
+    if (pending || !lastPoints) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      if (lastPoints) drawPlot(lastPoints.points, lastPoints.meta);
+    });
+  });
+  observer.observe(els.plot);
 }
 
 /* ── 上传区 ───────────────────────────────────────────────────────── */
@@ -311,7 +341,11 @@ els.runBtn.addEventListener('click', async () => {
   els.runBtn.disabled = true;
   els.runHint.textContent = '上传中…';
   els.cardProgress.hidden = false;
-  els.resultStats.innerHTML = '';
+  clearPlot();
+  els.heroPts.textContent = '—';
+  els.heroFrames.textContent = '—';
+  els.heroChunks.textContent = '—';
+  els.heroElapsed.textContent = '—';
   setStatus('上传视频', 'running');
   setProgress('上传视频', 0);
   els.logBox.textContent = '';
@@ -415,17 +449,10 @@ function renderState(state) {
 /* ── 结果 ─────────────────────────────────────────────────────────── */
 function showResult(state) {
   const result = state.result || {};
-  const stats = [
-    ['点数', (result.point_count || 0).toLocaleString('zh-CN')],
-    ['帧数', result.frames || 0],
-    ['分块', result.chunk_count || 0],
-    ['耗时', state.duration ? `${state.duration} 秒` : '—'],
-  ];
-  els.resultStats.innerHTML = stats
-    .map(([label, value]) => `<div class="stat"><b>${value}</b><span>${label}</span></div>`)
-    .join('');
   els.heroPts.textContent = (result.point_count || 0).toLocaleString('zh-CN');
   els.heroFrames.textContent = result.frames || 0;
+  els.heroChunks.textContent = result.chunk_count || 0;
+  els.heroElapsed.textContent = state.duration ? `${state.duration} 秒` : '—';
   setStatus('完成', 'done');
 
   attachResultFiles(currentRunId, state.filename);
@@ -509,6 +536,7 @@ async function refreshHistory() {
 /* ── 初始化 ───────────────────────────────────────────────────────── */
 (async function init() {
   clearPlot();
+  watchPlotSize();
   try {
     const response = await fetch('/api/config');
     const config = await response.json();
